@@ -149,7 +149,7 @@ console.log("Upload Response =", data);
 
 if (data.url) {
   setProfilePhoto(
-    `http://127.0.0.1:8000${data.url}`
+    `https://ai-nexus-backend-wato.onrender.com${data.url}`
   );
   setUserImage(data.url);
 }
