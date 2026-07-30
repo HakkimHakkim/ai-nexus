@@ -22,7 +22,11 @@ app = FastAPI()
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://ai-nexus-lime.vercel.app",
+        "https://ai-nexus-git-main-hakkim.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
