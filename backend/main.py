@@ -12,6 +12,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import UploadFile, File
 import os
 from models import SavedItem
+import asyncio
+import requests
+from fastapi import Depends
+
+# 👇 Imports keela add pannunga
+class ChatRequest(BaseModel):
+    model: str
+    prompt: str
 
 load_dotenv()
 genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -219,6 +227,28 @@ def add_message(session_id: int, req: MessageIn, user: User = Depends(get_curren
         session.title = req.content[:40] + ("..." if len(req.content) > 40 else "")
     db.commit()
     return {"status": "saved"}
+@app.post("/api/chat")
+
+async def chat(req: ChatRequest, user: User = Depends(get_current_user)):
+    func = MODEL_FUNCS.get(req.model)
+
+    if not func:
+        return {"error": "invalid model"}
+
+    try:
+        reply = await asyncio.to_thread(func, req.prompt)
+
+        return {
+            "reply": reply
+        }
+
+    except Exception as e:
+        print("CHAT ERROR:", repr(e))
+        return {
+            "reply": f"⚠️ Error: {str(e)}"
+        }
+
+
 
 
 @app.delete("/api/sessions/{session_id}")
@@ -285,66 +315,80 @@ def call_groq(prompt: str, model_id: str, hide_reasoning: bool = False) -> str:
 
 
 def call_ollama(prompt: str, model_id: str = "llama3.2") -> str:
-    # Works fully offline once the model is pulled — no API key, no internet
-    res = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": model_id, "prompt": prompt, "stream": False},
-        timeout=120,
-    )
-    res.raise_for_status()
-    return res.json()["response"]
+    print("🔥 OLLAMA FUNCTION CALLED")
+
+    url = "http://127.0.0.1:11434/api/generate"
+
+    try:
+        res = requests.post(
+            url,
+            json={
+                "model": model_id,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=120,
+        )
+
+        print("OLLAMA STATUS:", res.status_code)
+        print("OLLAMA RESPONSE:", res.text)
+
+        res.raise_for_status()
+
+        data = res.json()
+
+        return data["response"]
+
+    except requests.exceptions.ConnectionError as e:
+        print("❌ OLLAMA CONNECTION ERROR:", e)
+        raise Exception("Ollama connection failed")
+
+    except requests.exceptions.Timeout as e:
+        print("❌ OLLAMA TIMEOUT ERROR:", e)
+        raise Exception("Ollama response timeout")
+
+    except Exception as e:
+        print("❌ OLLAMA ERROR:", repr(e))
+        raise e
 
 
-# All 5 are free-tier, no credit card needed. "offline" needs zero internet.
+
+# AI MODEL FUNCTIONS
 MODEL_FUNCS = {
     "gemini": lambda p: call_gemini(p),
     "llama70b": lambda p: call_groq(p, "openai/gpt-oss-120b"),
     "llama8b": lambda p: call_groq(p, "openai/gpt-oss-20b"),
-    "qwen": lambda p: call_groq(p, "qwen/qwen3.6-27b", hide_reasoning=True),
+    "qwen": lambda p: call_groq(p, "qwen/qwen3.6-27b"),
     "offline": lambda p: call_ollama(p, "llama3.2"),
 }
 
 
-@app.get("/")
-def root():
-    return {"status": "AI Nexus backend running", "models": list(MODEL_FUNCS.keys())}
-
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest, user: User = Depends(get_current_user)):
-    func = MODEL_FUNCS.get(req.model)
-    if not func:
-        return {"error": "invalid model"}
-    try:
-        reply = await asyncio.to_thread(func, req.prompt)
-        return {"reply": reply}
-    except requests.exceptions.ConnectionError:
-        return {"reply": "⚠️ Ollama is not running. Start it and make sure the model is pulled (ollama pull llama3.2)."}
-    except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
-@app.post("/api/me/upload-photo")
-async def upload_photo(
-    file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+async def chat(
+    req: ChatRequest,
+    user: User = Depends(get_current_user)
 ):
-    folder = "uploads/profile"
-    os.makedirs(folder, exist_ok=True)
+    func = MODEL_FUNCS.get(req.model)
 
-    file_path = os.path.join(folder, file.filename)
+    if not func:
+        return {
+            "error": "Invalid model"
+        }
 
-    contents = await file.read()
+    try:
+        reply = await asyncio.to_thread(
+            func,
+            req.prompt
+        )
 
-    with open(file_path, "wb") as buffer:
-        buffer.write(contents)
+        return {
+            "reply": reply
+        }
 
-    user.profile_photo = file_path
+    except Exception as e:
+        print("❌ CHAT ERROR:", repr(e))
 
-    db.commit()
-    db.refresh(user)
-
-    return {
-        "message": "Photo uploaded successfully",
-        "image": user.profile_photo,
-    }
-   
+        return {
+            "reply": f"⚠️ Error: {str(e)}"
+        }

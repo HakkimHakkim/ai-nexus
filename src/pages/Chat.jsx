@@ -13,7 +13,7 @@ const modelLabels = {
   qwen: 'Qwen3.6 27B',
   offline: 'Llama (Offline)',
 }
-const API = 'https://ai-nexus-backend-wato.onrender.com'
+const API = "https://ai-nexus-backend-wato.onrender.com"
 const LIBRARY_KEY = 'ainexus_library_items'
 const ACTIVITY_KEY = 'ainexus_activity_log'
 export default function Chat() {

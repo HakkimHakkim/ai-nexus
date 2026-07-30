@@ -4,6 +4,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 import os
+from models import SavedItem
 
 
 SECRET_KEY = os.getenv("JWT_SECRET", "change-this-secret-key-later")
