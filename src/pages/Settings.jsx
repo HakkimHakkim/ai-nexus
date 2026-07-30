@@ -4,7 +4,7 @@ import AmbientBackground from '../components/AmbientBackground.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Check } from 'lucide-react'
 
-const API = 'http://localhost:8000'
+const API = 'https://ai-nexus-backend-wato.onrender.com'
 const modelChoices = [
   { id: 'gemini', label: 'Gemini 3.6' },
   { id: 'llama70b', label: 'GPT-OSS 120B' },

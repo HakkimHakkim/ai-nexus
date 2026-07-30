@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 
 const AuthContext = createContext(null)
-const API = 'http://localhost:8000'
+const API = 'https://ai-nexus-backend-wato.onrender.com'
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('ai-nexus-token'))
