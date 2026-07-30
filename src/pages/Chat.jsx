@@ -13,8 +13,8 @@ const modelLabels = {
   qwen: 'Qwen3.6 27B',
   offline: 'Llama (Offline)',
 }
-const API = 'http://localhost:8000'
-const LIBRARY_KEY = 'ainexus_library_items'
+const API = 'https://ai-nexus-backend-wato.onrender.com'
+const LIBRARY_KEconstY = 'ainexus_library_items'
 const ACTIVITY_KEY = 'ainexus_activity_log'
 
 export default function Chat() {
@@ -112,9 +112,17 @@ async function sendMessage(e, overridePrompt) {
     const sid = await ensureSession()
     await saveMessage(sid, 'user', null, prompt)
 
-    const round = { prompt, results: Object.fromEntries(selectedModels.map((m) => [m, null])) }
-    setRounds((r) => [...r, round])
-    const roundIndex = rounds.length
+    const round = {
+  prompt,
+  results: Object.fromEntries(selectedModels.map((m) => [m, null]))
+}
+
+let roundIndex
+
+setRounds((prev) => {
+  roundIndex = prev.length
+  return [...prev, round]
+})
 
     await Promise.all(
       selectedModels.map(async (model) => {
