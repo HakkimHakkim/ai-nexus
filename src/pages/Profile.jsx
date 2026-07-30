@@ -10,10 +10,12 @@ const activity = [
 ]
 
 export default function Profile() {
+  const [profilePhoto, setProfilePhoto] = useState("");
   const { user } = useAuth()
   const [profile, setProfile] = useState(null);
   const [userImage, setUserImage] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+
 
   const [form, setForm] = useState({
   name: "",
@@ -131,7 +133,7 @@ const uploadPhoto = async () => {
     const token = localStorage.getItem("ai-nexus-token");
 
     const response = await fetch(
-      "http://127.0.0.1:8000/api/me/upload-photo",
+      "https://ai-nexus-backend-wato.onrender.com/api/me/upload-photo",
       {
         method: "POST",
         headers: {
@@ -141,10 +143,16 @@ const uploadPhoto = async () => {
       }
     );
 
-    const data = await response.json();
-    setUserImage(data.image);
+ const data = await response.json();
 
-    console.log("Upload Response =", data);
+console.log("Upload Response =", data);
+
+if (data.url) {
+  setProfilePhoto(
+    `http://127.0.0.1:8000${data.url}`
+  );
+  setUserImage(data.url);
+}
 
     alert("Profile photo uploaded!");
 
@@ -162,14 +170,24 @@ const uploadPhoto = async () => {
         <div className="glass rounded-2xl p-6">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-center gap-4">
-              {userImage ? (
+  {profilePhoto || userImage ? (
+<div>
   <img
-    src={`https://ai-nexus-backend-wato.onrender.com/${userImage}`}
+    src={
+      profilePhoto ||
+      `http://127.0.0.1:8000${userImage}`
+    }
     alt="Profile"
-    className="h-16 w-16 rounded-full object-cover"
+    style={{
+      width: "150px",
+      height: "150px",
+      borderRadius: "50%",
+      objectFit: "cover"
+    }}
   />
+</div>
 ) : (
-  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary-500 to-fuchsia-500" />
+<div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary-500 to-fuchsia-500" />
 )}
               <div>
                 <p className="text-lg font-semibold text-heading">{user?.name || 'Guest'}</p>

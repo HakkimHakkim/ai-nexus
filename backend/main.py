@@ -15,6 +15,9 @@ from models import SavedItem
 import asyncio
 import requests
 from fastapi import Depends
+from fastapi import UploadFile, File, Depends
+import os
+import shutil
 
 # 👇 Imports keela add pannunga
 class ChatRequest(BaseModel):
@@ -27,6 +30,19 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 security = HTTPBearer()
 
 app = FastAPI()
+@app.post("/api/me/upload-photo")
+async def upload_photo(file: UploadFile = File(...)):
+
+    file_path = f"uploads/{file.filename}"
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "message": "Photo uploaded successfully",
+        "filename": file.filename,
+        "url": f"/uploads/{file.filename}"
+    }
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +54,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class ChatRequest(BaseModel):
     prompt: str
