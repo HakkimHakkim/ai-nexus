@@ -14,9 +14,8 @@ const modelLabels = {
   offline: 'Llama (Offline)',
 }
 const API = 'https://ai-nexus-backend-wato.onrender.com'
-const LIBRARY_KEconstY = 'ainexus_library_items'
+const LIBRARY_KEY = 'ainexus_library_items'
 const ACTIVITY_KEY = 'ainexus_activity_log'
-
 export default function Chat() {
   const { token } = useAuth()
   const [searchParams] = useSearchParams()
@@ -110,6 +109,8 @@ async function sendMessage(e, overridePrompt) {
   setLoading(true)
 
     const sid = await ensureSession()
+    console.log("Session ID:", sid)
+console.log("React sessionId:", sessionId)
     await saveMessage(sid, 'user', null, prompt)
 
     const round = {
