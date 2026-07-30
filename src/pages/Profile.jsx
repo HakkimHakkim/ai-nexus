@@ -36,7 +36,7 @@ useEffect(() => {
     try {
       const token = localStorage.getItem("ai-nexus-token");
 
-      const res = await fetch("http://localhost:8000/api/me", {
+      const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -66,7 +66,7 @@ setForm({
   try {
     const token = localStorage.getItem("ai-nexus-token");
 
-    const res = await fetch("http://localhost:8000/api/me", {
+    const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -93,7 +93,7 @@ async function saveProfile() {
   try {
     const token = localStorage.getItem("ai-nexus-token");
 
-    const res = await fetch("http://localhost:8000/api/me", {
+    const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -164,7 +164,7 @@ const uploadPhoto = async () => {
             <div className="flex items-center gap-4">
               {userImage ? (
   <img
-    src={`http://localhost:8000/${userImage}`}
+    src={`https://ai-nexus-backend-wato.onrender.com/${userImage}`}
     alt="Profile"
     className="h-16 w-16 rounded-full object-cover"
   />

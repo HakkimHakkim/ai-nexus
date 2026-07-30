@@ -38,7 +38,7 @@ export default function Compare() {
       selectedModels.map(async (model) => {
         const start = performance.now()
         try {
-          const res = await fetch('http://localhost:8000/api/chat', {
+          const res = await fetch('https://ai-nexus-backend-wato.onrender.com/api/chat', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
