@@ -3,6 +3,7 @@ import AmbientBackground from '../components/AmbientBackground.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useEffect, useState } from 'react'
 
+
 const activity = [
   { title: 'Updated profile picture', sub: '2 hours ago' },
   { title: 'Started React Refactoring', sub: 'Yesterday, 4:12 PM' },
@@ -10,21 +11,27 @@ const activity = [
 ]
 
 export default function Profile() {
+  const { user } = useAuth();
+
   const [profilePhoto, setProfilePhoto] = useState("");
-  const { user } = useAuth()
   const [profile, setProfile] = useState(null);
   const [userImage, setUserImage] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
 
+  const profileImage = profilePhoto
+    ? profilePhoto
+    : userImage
+      ? `https://ai-nexus-backend-wato.onrender.com${userImage}`
+      : "/default-avatar.png";
 
   const [form, setForm] = useState({
-  name: "",
-  phone: "",
-  country: "",
-  occupation: "",
-  website: "",
-  bio: "",
-});
+    name: "",
+    phone: "",
+    country: "",
+    occupation: "",
+    website: "",
+    bio: "",
+  });
 
 const stats = [
   { label: "Total Chats", value: profile?.total_chats ?? 0 },
@@ -48,48 +55,23 @@ useEffect(() => {
 
 if (res.ok) {
   setProfile(data);
-  setUserImage(data.profile_photo);
+  setUserImage(data.profile_photo ? `/${data.profile_photo}` : "");
+
+  setForm({
+    name: data.name || "",
+    phone: data.phone || "",
+    country: data.country || "",
+    occupation: data.occupation || "",
+    website: data.website || "",
+    bio: data.bio || "",
+  });
 }
-setForm({
-  name: data.name || "",
-  phone: data.phone || "",
-  country: data.country || "",
-  occupation: data.occupation || "",
-  website: data.website || "",
-  bio: data.bio || "",
-});
       } catch (err) {
         console.error(err);
       }
     }
 
   loadProfile();
-  async function saveProfile() {
-  try {
-    const token = localStorage.getItem("ai-nexus-token");
-
-    const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      alert("Profile updated successfully!");
-      setProfile({ ...profile, ...form });
-    } else {
-      alert(data.detail || "Update failed");
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Server Error");
-  }
-}
 }, []);
 async function saveProfile() {
   try {
@@ -114,50 +96,39 @@ async function saveProfile() {
       ...form,
     });
 
-  } catch (err) {
+} catch (err) {
     console.error(err);
   }
 }
 
 const uploadPhoto = async () => {
-  console.log("selectedFile =", selectedFile);
-  if (!selectedFile) {
-    alert("Click ok to change the photo (Then click upload).");
-    return;
-  }
+  if (!selectedFile) return;
 
   const formData = new FormData();
   formData.append("file", selectedFile);
 
   try {
-    const token = localStorage.getItem("ai-nexus-token");
-
     const response = await fetch(
       "https://ai-nexus-backend-wato.onrender.com/api/me/upload-photo",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${localStorage.getItem("ai-nexus-token")}`,
         },
         body: formData,
       }
     );
 
- const data = await response.json();
+    const data = await response.json();
 
-console.log("Upload Response =", data);
-
-if (data.url) {
-  setProfilePhoto(
-    `https://ai-nexus-backend-wato.onrender.com${data.url}`
-  );
-  setUserImage(data.url);
+  if (response.ok && data.image) {
+  setProfilePhoto("");
+  setUserImage(`/${data.image}`);   // "/uploads/profile/profile.jpg"
+} else {
+  console.error("Upload failed:", data);
 }
-
-    alert("Profile photo uploaded!");
-
-  } catch (error) {
-    console.error("Upload failed:", error);
+  } catch (err) {
+    console.error("Upload Error =", err);
   }
 };
   return (
@@ -172,19 +143,18 @@ if (data.url) {
             <div className="flex items-center gap-4">
   {profilePhoto || userImage ? (
 <div>
-  <img
-    src={
-      profilePhoto ||
-      `http://127.0.0.1:8000${userImage}`
-    }
-    alt="Profile"
-    style={{
-      width: "150px",
-      height: "150px",
-      borderRadius: "50%",
-      objectFit: "cover"
-    }}
-  />
+<img
+  src={profileImage}
+  alt="Profile"
+  className="profile-img"
+  style={{
+    width: "150px",
+    height: "150px",
+    borderRadius: "50%",
+    objectFit: "cover",
+  }}
+  
+/>
 </div>
 ) : (
 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary-500 to-fuchsia-500" />
@@ -199,13 +169,12 @@ if (data.url) {
   type="file"
   hidden
   accept="image/*"
-  onChange={(e) => {
+onChange={(e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setSelectedFile(file);
-    uploadPhoto(file);
-  }}
+}}
 />
 
 <label htmlFor="photoUpload" className="btn-primary cursor-pointer">
@@ -255,8 +224,6 @@ if (data.url) {
   onChange={(e) => setForm({ ...form, phone: e.target.value })}
 /></div>
     <div>
-  <p className="text-xs text-faint">Country</p>
-
   <input
     type="text"
     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"

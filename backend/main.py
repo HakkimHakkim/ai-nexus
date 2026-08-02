@@ -18,6 +18,7 @@ from fastapi import Depends
 from fastapi import UploadFile, File, Depends
 import os
 import shutil
+from fastapi.staticfiles import StaticFiles
 
 # 👇 Imports keela add pannunga
 class ChatRequest(BaseModel):
@@ -30,20 +31,12 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 security = HTTPBearer()
 
 app = FastAPI()
-@app.post("/api/me/upload-photo")
-async def upload_photo(file: UploadFile = File(...)):
 
-    file_path = f"uploads/{file.filename}"
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return {
-        "message": "Photo uploaded successfully",
-        "filename": file.filename,
-        "url": f"/uploads/{file.filename}"
-    }
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads"
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -107,6 +100,28 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security), db
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+@app.post("/api/me/upload-photo")
+async def upload_photo(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    filename = f"user_{user.id}_{file.filename}"
+    file_path = os.path.join("uploads", filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Save path in database
+    user.profile_photo = f"/uploads/{filename}"
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Photo uploaded successfully",
+        "url": user.profile_photo
+    }
 
 
 @app.post("/api/signup")
