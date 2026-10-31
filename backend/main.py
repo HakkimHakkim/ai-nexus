@@ -26,6 +26,38 @@ class ChatRequest(BaseModel):
     prompt: str
 
 load_dotenv()
+AI_RESPONSE_INSTRUCTIONS = """
+You are an advanced AI assistant and professional coding assistant.
+
+GENERAL RESPONSE RULES:
+1. Give clear, structured and useful answers.
+2. Use meaningful headings and subheadings.
+3. Use bullet points and numbered steps where appropriate.
+4. Use Markdown tables when comparing information.
+5. Explain concepts with practical examples.
+6. Avoid unnecessary repetition.
+7. Keep simple questions concise.
+
+CODING RULES:
+1. Generate complete, working code when requested.
+2. Use proper Markdown code blocks with language names.
+3. Include all required imports and dependencies.
+4. Explain code logic step by step.
+5. Include file names and folder structures when relevant.
+6. Provide installation and execution commands.
+7. Include expected output where useful.
+8. Consider errors, edge cases and security.
+9. Never claim code was tested unless it actually was.
+
+For complex programming tasks, organize answers as:
+- Understanding the requirement
+- Project structure
+- Dependencies
+- Complete code
+- How to run
+- Expected output
+- Explanation
+"""
 genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 security = HTTPBearer()
@@ -259,26 +291,7 @@ def add_message(session_id: int, req: MessageIn, user: User = Depends(get_curren
         session.title = req.content[:40] + ("..." if len(req.content) > 40 else "")
     db.commit()
     return {"status": "saved"}
-@app.post("/api/chat")
 
-async def chat(req: ChatRequest, user: User = Depends(get_current_user)):
-    func = MODEL_FUNCS.get(req.model)
-
-    if not func:
-        return {"error": "invalid model"}
-
-    try:
-        reply = await asyncio.to_thread(func, req.prompt)
-
-        return {
-            "reply": reply
-        }
-
-    except Exception as e:
-        print("CHAT ERROR:", repr(e))
-        return {
-            "reply": f"⚠️ Error: {str(e)}"
-        }
 
 
 
@@ -329,8 +342,8 @@ def update_settings(req: SettingsUpdate, user: User = Depends(get_current_user),
 
 def call_gemini(prompt: str) -> str:
     response = genai_client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=prompt,
+        model="gemini-2.5-flash",
+        contents=f"{AI_RESPONSE_INSTRUCTIONS}\n\nUSER REQUEST:\n{prompt}"
     )
     return response.text
 
@@ -338,13 +351,69 @@ def call_gemini(prompt: str) -> str:
 def call_groq(prompt: str, model_id: str, hide_reasoning: bool = False) -> str:
     params = {
         "model": model_id,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {
+                "role": "system",
+                "content": AI_RESPONSE_INSTRUCTIONS
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
     }
+
     if hide_reasoning:
         params["reasoning_format"] = "hidden"
+
     res = groq_client.chat.completions.create(**params)
+
     return res.choices[0].message.content
 
+def call_openrouter(prompt: str) -> str:
+    api_key = os.getenv("OPENROUTER_API_KEY")
+
+    if not api_key:
+        raise Exception("OpenRouter API key is missing")
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://ai-nexus-lime.vercel.app",
+        "X-Title": "AI Nexus"
+    }
+
+    payload = {
+    "model": "openrouter/free",
+    "messages": [
+        {
+            "role": "system",
+            "content": AI_RESPONSE_INSTRUCTIONS
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+}
+
+    response = requests.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=90
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    if not data.get("choices"):
+        raise Exception("OpenRouter returned an empty response")
+
+    return data["choices"][0]["message"]["content"]
 
 def call_ollama(prompt: str, model_id: str = "llama3.2") -> str:
     print("🔥 OLLAMA FUNCTION CALLED")
@@ -386,15 +455,53 @@ def call_ollama(prompt: str, model_id: str = "llama3.2") -> str:
 
 
 # AI MODEL FUNCTIONS
+# AI MODEL FUNCTIONS
 MODEL_FUNCS = {
     "gemini": lambda p: call_gemini(p),
-    "llama70b": lambda p: call_groq(p, "openai/gpt-oss-120b"),
-    "llama8b": lambda p: call_groq(p, "openai/gpt-oss-20b"),
-    "qwen": lambda p: call_groq(p, "qwen/qwen3.6-27b"),
-    "offline": lambda p: call_ollama(p, "llama3.2"),
+
+    "llama70b": lambda p: call_groq(
+        p, "openai/gpt-oss-120b"
+    ),
+
+    "llama8b": lambda p: call_groq(
+        p, "openai/gpt-oss-20b"
+    ),
+
+    "qwen": lambda p: call_groq(
+        p, "qwen/qwen3.8-27b"
+    ),
+
+    # OpenRouter Free
+    "offline": lambda p: call_openrouter(p),
 }
+@app.post("/api/chat")
+async def chat(
+    req: ChatRequest,
+    user: User = Depends(get_current_user)
+):
+    func = MODEL_FUNCS.get(req.model)
 
+    if not func:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid model"
+        )
 
+    try:
+        reply = await asyncio.to_thread(
+            func,
+            req.prompt
+        )
+
+        return {"reply": reply}
+
+    except Exception as e:
+        print("CHAT ERROR:", repr(e))
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI provider error: {str(e)}"
+        )
 
 @app.post("/api/chat")
 async def chat(
@@ -408,19 +515,4 @@ async def chat(
             "error": "Invalid model"
         }
 
-    try:
-        reply = await asyncio.to_thread(
-            func,
-            req.prompt
-        )
-
-        return {
-            "reply": reply
-        }
-
-    except Exception as e:
-        print("❌ CHAT ERROR:", repr(e))
-
-        return {
-            "reply": f"⚠️ Error: {str(e)}"
-        }
+    

@@ -1,150 +1,527 @@
+
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar.jsx'
-import AmbientBackground from '../components/AmbientBackground.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { Check } from 'lucide-react'
+import {
+  Check,
+  Cpu,
+  Bell,
+  SlidersHorizontal,
+  Save,
+  Sparkles,
+  MessageSquare,
+  ShieldCheck,
+  RotateCcw,
+  AlertCircle,
+} from 'lucide-react'
+import './settings.css'
 
 const API = 'https://ai-nexus-backend-wato.onrender.com'
+
 const modelChoices = [
-  { id: 'gemini', label: 'Gemini 3.6' },
-  { id: 'llama70b', label: 'GPT-OSS 120B' },
-  { id: 'llama8b', label: 'GPT-OSS 20B' },
-  { id: 'qwen', label: 'Qwen3.6 27B' },
-  { id: 'offline', label: 'Llama (Offline)' },
+  {
+    id: 'gemini',
+    label: 'Gemini 3.6',
+    description: 'Google AI model',
+    short: 'G',
+  },
+  {
+    id: 'llama70b',
+    label: 'GPT-OSS 120B',
+    description: 'Advanced reasoning',
+    short: '120',
+  },
+  {
+    id: 'llama8b',
+    label: 'GPT-OSS 20B',
+    description: 'Lightweight responses',
+    short: '20',
+  },
+  {
+    id: 'qwen',
+    label: 'Qwen3.6 27B',
+    description: 'General-purpose AI',
+    short: 'Q',
+  },
+  {
+    id: 'offline',
+    label: 'Llama (Offline)',
+    description: 'Local model option',
+    short: 'L',
+  },
 ]
 
-function Toggle({ checked, onChange }) {
+const responseLengths = [
+  {
+    id: 'concise',
+    label: 'Concise',
+    description: 'Short and direct',
+  },
+  {
+    id: 'standard',
+    label: 'Standard',
+    description: 'Balanced answers',
+  },
+  {
+    id: 'detailed',
+    label: 'Detailed',
+    description: 'More explanation',
+  },
+]
+
+function Toggle({ checked, onChange, disabled = false }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`h-5 w-9 rounded-full transition ${
-        checked ? 'bg-gradient-to-r from-primary-500 to-fuchsia-500' : 'track'
-      }`}
+      className={`settings-toggle ${checked ? 'enabled' : ''}`}
     >
-      <span className={`block h-4 w-4 translate-x-0.5 rounded-full bg-white transition ${checked ? 'translate-x-4' : ''}`} />
+      <span />
     </button>
   )
 }
 
-function Card({ title, children }) {
+function SettingCard({ icon: Icon, title, description, children }) {
   return (
-    <div className="glass rounded-2xl p-5">
-      <p className="mb-4 text-sm font-semibold text-heading">{title}</p>
-      {children}
-    </div>
+    <section className="settings-card">
+      <div className="settings-card-heading">
+        <div className="settings-card-icon">
+          <Icon size={19} />
+        </div>
+
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </div>
+
+      <div className="settings-card-content">
+        {children}
+      </div>
+    </section>
   )
 }
 
-function Field({ label, children }) {
+function ToggleRow({ title, description, checked, onChange, disabled }) {
   return (
-    <div className="mb-3">
-      <label className="mb-1 block text-xs text-muted">{label}</label>
-      {children}
+    <div className="settings-toggle-row">
+      <div className="settings-toggle-copy">
+        <strong>{title}</strong>
+        {description && <span>{description}</span>}
+      </div>
+
+      <Toggle
+        checked={Boolean(checked)}
+        onChange={onChange}
+        disabled={disabled}
+      />
     </div>
   )
 }
 
 export default function Settings() {
   const { token } = useAuth()
+
   const [settings, setSettings] = useState(null)
-  const [saved, setSaved] = useState(false)
-  const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+  const [loading, setLoading] = useState(true)
+  const [savingField, setSavingField] = useState(null)
+  const [savedField, setSavedField] = useState(null)
+  const [error, setError] = useState('')
+
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  }
 
   useEffect(() => {
-    fetch(`${API}/api/settings`, { headers: authHeaders })
-      .then((r) => r.json())
-      .then(setSettings)
-  }, [])
+    let active = true
+
+    async function loadSettings() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const response = await fetch(`${API}/api/settings`, {
+          headers: authHeaders,
+        })
+
+        if (!response.ok) {
+          throw new Error('Unable to load your settings.')
+        }
+
+        const data = await response.json()
+
+        if (active) {
+          setSettings(data)
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Something went wrong.')
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    if (token) {
+      loadSettings()
+    } else {
+      setLoading(false)
+      setError('Please log in to access your settings.')
+    }
+
+    return () => {
+      active = false
+    }
+  }, [token])
 
   async function update(field, value) {
-    const next = { ...settings, [field]: value }
-    setSettings(next)
-    const res = await fetch(`${API}/api/settings`, {
-      method: 'PUT',
-      headers: authHeaders,
-      body: JSON.stringify({ [field]: value }),
-    })
-    if (res.ok) {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
+    if (!settings || savingField) return
+
+    const previousValue = settings[field]
+
+    setSettings((current) => ({
+      ...current,
+      [field]: value,
+    }))
+
+    setSavingField(field)
+    setSavedField(null)
+    setError('')
+
+    try {
+      const response = await fetch(`${API}/api/settings`, {
+        method: 'PUT',
+        headers: authHeaders,
+        body: JSON.stringify({ [field]: value }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Could not save this setting. Please try again.')
+      }
+
+      setSavedField(field)
+    } catch (err) {
+      setSettings((current) => ({
+        ...current,
+        [field]: previousValue,
+      }))
+
+      setError(err.message || 'Failed to save settings.')
+    } finally {
+      setSavingField(null)
     }
+  }
+
+  const isSaving = Boolean(savingField)
+
+  if (loading) {
+    return (
+      <div className="settings-shell">
+        <Sidebar />
+        <main className="settings-page">
+          <div className="settings-loading">
+            <div className="settings-loader" />
+            <p>Loading your workspace preferences...</p>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   if (!settings) {
     return (
-      <div className="flex min-h-screen text-body">
-        <AmbientBackground />
+      <div className="settings-shell">
         <Sidebar />
-        <main className="flex flex-1 items-center justify-center">
-          <p className="text-muted">Loading settings...</p>
+        <main className="settings-page">
+          <div className="settings-error-page">
+            <AlertCircle size={28} />
+            <h2>Settings unavailable</h2>
+            <p>{error || 'We could not load your preferences.'}</p>
+
+            <button
+              type="button"
+              className="settings-retry-btn"
+              onClick={() => window.location.reload()}
+            >
+              <RotateCcw size={15} />
+              Try again
+            </button>
+          </div>
         </main>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen text-body">
-      <AmbientBackground />
+    <div className="settings-shell">
       <Sidebar />
-      <main className="flex-1 px-10 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-heading">Settings</h1>
-          {saved && (
-            <span className="flex items-center gap-1 text-xs text-primary-400">
-              <Check size={14} /> Saved
-            </span>
-          )}
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card title="AI Preferences">
-            <Field label="Default AI Model">
-              <select
-                className="glass-input"
-                value={settings.default_model}
-                onChange={(e) => update('default_model', e.target.value)}
-              >
-                {modelChoices.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-            </Field>
+      <main className="settings-page">
+        <div className="settings-content">
 
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-muted">Auto Save Conversations</span>
-              <Toggle checked={settings.auto_save} onChange={(v) => update('auto_save', v)} />
-            </div>
-
-            <div>
-              <p className="mb-1 text-xs text-muted">Preferred Response Length</p>
-              <div className="flex gap-2 text-xs">
-                {['concise', 'standard', 'detailed'].map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => update('response_length', v)}
-                    className={settings.response_length === v ? 'btn-primary px-3 py-1.5 capitalize' : 'btn-ghost px-3 py-1.5 capitalize'}
-                  >
-                    {v}
-                  </button>
-                ))}
+          {/* HEADER */}
+          <header className="settings-header">
+            <div className="settings-header-copy">
+              <div className="settings-breadcrumb">
+                <span>Workspace</span>
+                <span>/</span>
+                <strong>Settings</strong>
               </div>
-            </div>
-          </Card>
 
-          <Card title="Notifications">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-muted">Email Notifications</span>
-              <Toggle checked={settings.email_notifications} onChange={(v) => update('email_notifications', v)} />
+              <p className="settings-overline">
+                PERSONALIZE YOUR EXPERIENCE
+              </p>
+
+              <h1>Settings</h1>
+
+              <p>
+                Configure how AI Nexus works for you.
+                Manage your AI preferences and notifications.
+              </p>
             </div>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-muted">Desktop Alerts</span>
-              <Toggle checked={settings.desktop_alerts} onChange={(v) => update('desktop_alerts', v)} />
+
+            <div className={`settings-save-status ${
+              isSaving ? 'saving' : savedField ? 'success' : ''
+            }`}>
+              {isSaving ? (
+                <>
+                  <span className="settings-status-dot" />
+                  Saving changes...
+                </>
+              ) : savedField ? (
+                <>
+                  <Check size={15} />
+                  Changes saved
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  Settings synced
+                </>
+              )}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted">Comparison Complete</span>
-              <Toggle checked={settings.comparison_complete_alerts} onChange={(v) => update('comparison_complete_alerts', v)} />
+          </header>
+
+          {/* ERROR MESSAGE */}
+          {error && (
+            <div className="settings-error-banner">
+              <AlertCircle size={17} />
+              <span>{error}</span>
+              <button type="button" onClick={() => setError('')}>
+                Dismiss
+              </button>
             </div>
-          </Card>
+          )}
+
+          {/* MAIN SETTINGS */}
+          <div className="settings-layout">
+
+            <div className="settings-main-column">
+
+              {/* AI PREFERENCES */}
+              <SettingCard
+                icon={Cpu}
+                title="AI Preferences"
+                description="Choose how your AI assistant responds."
+              >
+                <div className="settings-field">
+                  <div className="settings-field-heading">
+                    <strong>Default AI Model</strong>
+                    <span>Select the model used for new conversations.</span>
+                  </div>
+
+                  <div className="settings-model-grid">
+                    {modelChoices.map((model) => (
+                      <button
+                        type="button"
+                        key={model.id}
+                        disabled={isSaving}
+                        onClick={() => update('default_model', model.id)}
+                        className={`settings-model-option ${
+                          settings.default_model === model.id
+                            ? 'selected'
+                            : ''
+                        }`}
+                      >
+                        <span className="settings-model-symbol">
+                          {model.short}
+                        </span>
+
+                        <span className="settings-model-info">
+                          <strong>{model.label}</strong>
+                          <small>{model.description}</small>
+                        </span>
+
+                        <span className="settings-model-check">
+                          {settings.default_model === model.id && (
+                            <Check size={15} />
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="settings-divider" />
+
+                <ToggleRow
+                  title="Auto Save Conversations"
+                  description="Automatically save your conversations to your library."
+                  checked={settings.auto_save}
+                  onChange={(value) => update('auto_save', value)}
+                  disabled={isSaving}
+                />
+
+                <div className="settings-divider" />
+
+                <div className="settings-field settings-response-field">
+                  <div className="settings-field-heading">
+                    <strong>Preferred Response Length</strong>
+                    <span>Choose the level of detail you prefer.</span>
+                  </div>
+
+                  <div className="settings-response-options">
+                    {responseLengths.map((option) => (
+                      <button
+                        type="button"
+                        key={option.id}
+                        disabled={isSaving}
+                        onClick={() => update('response_length', option.id)}
+                        className={`settings-response-option ${
+                          settings.response_length === option.id
+                            ? 'selected'
+                            : ''
+                        }`}
+                      >
+                        <span className="settings-response-check">
+                          {settings.response_length === option.id && (
+                            <Check size={13} />
+                          )}
+                        </span>
+
+                        <strong>{option.label}</strong>
+                        <small>{option.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </SettingCard>
+
+              {/* NOTIFICATIONS */}
+              <SettingCard
+                icon={Bell}
+                title="Notifications"
+                description="Control which updates you want to receive."
+              >
+                <ToggleRow
+                  title="Email Notifications"
+                  description="Receive important updates through email."
+                  checked={settings.email_notifications}
+                  onChange={(value) => update('email_notifications', value)}
+                  disabled={isSaving}
+                />
+
+                <div className="settings-divider" />
+
+                <ToggleRow
+                  title="Desktop Alerts"
+                  description="Show notifications on your desktop."
+                  checked={settings.desktop_alerts}
+                  onChange={(value) => update('desktop_alerts', value)}
+                  disabled={isSaving}
+                />
+
+                <div className="settings-divider" />
+
+                <ToggleRow
+                  title="Comparison Complete"
+                  description="Get notified when model comparisons finish."
+                  checked={settings.comparison_complete_alerts}
+                  onChange={(value) =>
+                    update('comparison_complete_alerts', value)
+                  }
+                  disabled={isSaving}
+                />
+              </SettingCard>
+            </div>
+
+            {/* SIDE PANEL */}
+            <aside className="settings-side-column">
+              <div className="settings-info-card">
+                <div className="settings-info-icon">
+                  <Sparkles size={21} />
+                </div>
+
+                <p className="settings-overline">YOUR AI WORKSPACE</p>
+                <h2>Make AI Nexus work your way.</h2>
+                <p>
+                  Your preferences help shape the way your assistant
+                  responds and how you stay updated.
+                </p>
+              </div>
+
+              <div className="settings-summary-card">
+                <div className="settings-summary-heading">
+                  <SlidersHorizontal size={17} />
+                  <strong>Current Preferences</strong>
+                </div>
+
+                <div className="settings-summary-row">
+                  <span>Default model</span>
+                  <strong>
+                    {modelChoices.find(
+                      (model) => model.id === settings.default_model
+                    )?.label || settings.default_model}
+                  </strong>
+                </div>
+
+                <div className="settings-summary-row">
+                  <span>Response length</span>
+                  <strong className="capitalize">
+                    {settings.response_length}
+                  </strong>
+                </div>
+
+                <div className="settings-summary-row">
+                  <span>Auto save</span>
+                  <strong>{settings.auto_save ? 'Enabled' : 'Disabled'}</strong>
+                </div>
+
+                <div className="settings-summary-row">
+                  <span>Notifications</span>
+                  <strong>
+                    {[
+                      settings.email_notifications,
+                      settings.desktop_alerts,
+                      settings.comparison_complete_alerts,
+                    ].filter(Boolean).length} / 3 enabled
+                  </strong>
+                </div>
+              </div>
+
+              <div className="settings-help-card">
+                <MessageSquare size={18} />
+                <div>
+                  <strong>Changes are automatic</strong>
+                  <p>
+                    Each preference is saved as soon as you change it.
+                    No separate save button is required.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <footer className="settings-footer">
+            <span>AI Nexus © 2026</span>
+            <span>Personalized AI workspace</span>
+          </footer>
         </div>
       </main>
     </div>

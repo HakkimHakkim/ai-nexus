@@ -1,8 +1,30 @@
-import Sidebar from '../components/Sidebar.jsx'
-import AmbientBackground from '../components/AmbientBackground.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { useEffect, useState } from 'react'
 
+import { useEffect, useRef, useState } from 'react'
+import {
+  UserRound,
+  Mail,
+  Phone,
+  MapPin,
+  BriefcaseBusiness,
+  Globe,
+  Camera,
+  Save,
+  Sparkles,
+  Activity,
+  CalendarDays,
+  MessageSquare,
+  ImagePlus,
+  LoaderCircle,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+} from 'lucide-react'
+
+import Sidebar from '../components/Sidebar.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import './profile.css'
+
+const API = 'https://ai-nexus-backend-wato.onrender.com'
 
 const activity = [
   { title: 'Updated profile picture', sub: '2 hours ago' },
@@ -10,288 +32,562 @@ const activity = [
   { title: 'Compared Gemini vs Llama', sub: 'Oct 24, 2023' },
 ]
 
-export default function Profile() {
-  const { user } = useAuth();
-
-  const [profilePhoto, setProfilePhoto] = useState("");
-  const [profile, setProfile] = useState(null);
-  const [userImage, setUserImage] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-
-  const profileImage = profilePhoto
-    ? profilePhoto
-    : userImage
-      ? `https://ai-nexus-backend-wato.onrender.com${userImage}`
-      : "/default-avatar.png";
-
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    country: "",
-    occupation: "",
-    website: "",
-    bio: "",
-  });
-
-const stats = [
-  { label: "Total Chats", value: profile?.total_chats ?? 0 },
-  { label: "Comparisons", value: 0 },
-  { label: "Saved Items", value: 0 },
-  { label: "Join Date", value: profile?.join_date ?? "-" },
-];
-
-useEffect(() => {
-  async function loadProfile() {
-    try {
-      const token = localStorage.getItem("ai-nexus-token");
-
-      const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-        const data = await res.json();
-
-if (res.ok) {
-  setProfile(data);
-  setUserImage(data.profile_photo ? `/${data.profile_photo}` : "");
-
-  setForm({
-    name: data.name || "",
-    phone: data.phone || "",
-    country: data.country || "",
-    occupation: data.occupation || "",
-    website: data.website || "",
-    bio: data.bio || "",
-  });
+const initialForm = {
+  name: '',
+  phone: '',
+  country: '',
+  occupation: '',
+  website: '',
+  bio: '',
 }
+
+export default function Profile() {
+  const { user } = useAuth()
+  const fileInputRef = useRef(null)
+
+  const [profile, setProfile] = useState(null)
+  const [form, setForm] = useState(initialForm)
+  const [userImage, setUserImage] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState(null)
+
+  const profileImage = userImage
+    ? `${API}${userImage}`
+    : '/default-avatar.png'
+
+  const token = () => localStorage.getItem('ai-nexus-token')
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const res = await fetch(`${API}/api/me`, {
+          headers: {
+            Authorization: `Bearer ${token()}`,
+          },
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.detail || data.message || 'Unable to load profile')
+        }
+
+        setProfile(data)
+
+        if (data.profile_photo) {
+          setUserImage(
+            data.profile_photo.startsWith('/')
+              ? data.profile_photo
+              : `/${data.profile_photo}`
+          )
+        }
+
+        setForm({
+          name: data.name || '',
+          phone: data.phone || '',
+          country: data.country || '',
+          occupation: data.occupation || '',
+          website: data.website || '',
+          bio: data.bio || '',
+        })
       } catch (err) {
-        console.error(err);
+        console.error('Profile loading error:', err)
+        setMessage({
+          type: 'error',
+          text: err.message || 'Could not load your profile.',
+        })
+      } finally {
+        setLoading(false)
       }
     }
 
-  loadProfile();
-}, []);
-async function saveProfile() {
-  try {
-    const token = localStorage.getItem("ai-nexus-token");
+    loadProfile()
+  }, [])
 
-    const res = await fetch("https://ai-nexus-backend-wato.onrender.com/api/me", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(form),
-    });
- 
-
-    const data = await res.json();
-
-    alert(data.message);
-
-    setProfile({
-      ...profile,
-      ...form,
-    });
-
-} catch (err) {
-    console.error(err);
+  function updateField(field, value) {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }))
   }
-}
 
-const uploadPhoto = async () => {
-  if (!selectedFile) return;
+  async function saveProfile() {
+    setSaving(true)
+    setMessage(null)
 
-  const formData = new FormData();
-  formData.append("file", selectedFile);
-
-  try {
-    const response = await fetch(
-      "https://ai-nexus-backend-wato.onrender.com/api/me/upload-photo",
-      {
-        method: "POST",
+    try {
+      const res = await fetch(`${API}/api/me`, {
+        method: 'PUT',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("ai-nexus-token")}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token()}`,
+        },
+        body: JSON.stringify(form),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || 'Profile update failed')
+      }
+
+      setProfile((previous) => ({
+        ...previous,
+        ...form,
+        ...(data && typeof data === 'object' ? data : {}),
+      }))
+
+      setMessage({
+        type: 'success',
+        text: data.message || 'Profile updated successfully.',
+      })
+    } catch (err) {
+      console.error('Profile save error:', err)
+      setMessage({
+        type: 'error',
+        text: err.message || 'Unable to save profile.',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Please select an image file.' })
+      return
+    }
+
+    setSelectedFile(file)
+    setMessage(null)
+  }
+
+  async function uploadPhoto() {
+    if (!selectedFile) {
+      setMessage({ type: 'error', text: 'Please choose a photo first.' })
+      return
+    }
+
+    setUploading(true)
+    setMessage(null)
+
+    const formData = new FormData()
+    formData.append('file', selectedFile)
+
+    try {
+      const response = await fetch(`${API}/api/me/upload-photo`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token()}`,
         },
         body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.image) {
+        throw new Error(data.detail || data.message || 'Photo upload failed')
       }
-    );
 
-    const data = await response.json();
+      setUserImage(
+        data.image.startsWith('/') ? data.image : `/${data.image}`
+      )
+      setSelectedFile(null)
 
-  if (response.ok && data.image) {
-  setProfilePhoto("");
-  setUserImage(`/${data.image}`);   // "/uploads/profile/profile.jpg"
-} else {
-  console.error("Upload failed:", data);
-}
-  } catch (err) {
-    console.error("Upload Error =", err);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+
+      setMessage({
+        type: 'success',
+        text: 'Profile photo updated successfully.',
+      })
+    } catch (err) {
+      console.error('Photo upload error:', err)
+      setMessage({
+        type: 'error',
+        text: err.message || 'Unable to upload photo.',
+      })
+    } finally {
+      setUploading(false)
+    }
   }
-};
+
+  const stats = [
+    {
+      label: 'Total Chats',
+      value: profile?.total_chats ?? 0,
+      icon: MessageSquare,
+    },
+    {
+      label: 'Comparisons',
+      value: 0,
+      icon: Activity,
+    },
+    {
+      label: 'Saved Items',
+      value: 0,
+      icon: FileText,
+    },
+    {
+      label: 'Join Date',
+      value: profile?.join_date ?? '-',
+      icon: CalendarDays,
+    },
+  ]
+
   return (
-    <div className="flex min-h-screen text-body">
-      <AmbientBackground />
+    <div className="profile-page">
       <Sidebar />
-      <main className="flex-1 px-10 py-8">
-        <h1 className="mb-6 text-xl font-bold text-heading">Profile</h1>
 
-        <div className="glass rounded-2xl p-6">
-          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-4">
-  {profilePhoto || userImage ? (
-<div>
-<img
-  src={profileImage}
-  alt="Profile"
-  className="profile-img"
-  style={{
-    width: "150px",
-    height: "150px",
-    borderRadius: "50%",
-    objectFit: "cover",
-  }}
-  
-/>
-</div>
-) : (
-<div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary-500 to-fuchsia-500" />
-)}
-              <div>
-                <p className="text-lg font-semibold text-heading">{user?.name || 'Guest'}</p>
-                <p className="text-sm text-muted">{user?.email || '-'}</p>
+      <main className="profile-main">
+        <div className="profile-container">
+
+          <header className="profile-page-header">
+            <div>
+              <div className="profile-eyebrow">
+                <span className="profile-eyebrow-dot" />
+                ACCOUNT MANAGEMENT
               </div>
-            </div>
-<input
-  id="photoUpload"
-  type="file"
-  hidden
-  accept="image/*"
-onChange={(e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setSelectedFile(file);
-}}
-/>
-
-<label htmlFor="photoUpload" className="btn-primary cursor-pointer">
-  Change profile
-</label>
-
-<button
-  type="button"
-  onClick={uploadPhoto}
-  className="btn-primary"
->
-  Upload
-</button>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-xl border surface p-4 text-center">
-                <p className="text-lg font-bold text-heading">{s.value}</p>
-                <p className="text-xs text-faint">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="glass rounded-2xl p-6 lg:col-span-2">
-            <p className="mb-4 text-sm font-semibold text-body">Personal Information</p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
-              <div><p className="text-xs text-faint">Full Name</p>
-
-<input
-  type="text"
-  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-  value={form.name}
-  onChange={(e) => setForm({ ...form, name: e.target.value })}
-/></div>
-              <div><p className="text-xs text-faint">Email Address</p><p className="text-body">
-  {profile?.email || "Loading..."}
-</p></div>
-              <div><p className="text-xs text-faint">Phone Number</p>
-
-<input
-  type="text"
-  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-  value={form.phone}
-  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-/></div>
-    <div>
-  <input
-    type="text"
-    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-    value={form.country}
-    onChange={(e) => setForm({ ...form, country: e.target.value })}
-  />
-</div>
-           <div>
-  <p className="text-xs text-faint">Occupation</p>
-
-  <input
-    type="text"
-    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-    value={form.occupation}
-    onChange={(e) => setForm({ ...form, occupation: e.target.value })}
-  />
-</div>
-      <div>
-  <p className="text-xs text-faint">Country</p>
-
-  <input
-    type="text"
-    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-    value={form.country}
-    onChange={(e) => setForm({ ...form, country: e.target.value })}
-  />
-</div>
-            </div>
-            <div className="mt-4">
-  <p className="text-xs text-faint">Bio</p>
- <textarea
-  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
-  rows="4"
-  value={form.bio}
-  onChange={(e) => setForm({ ...form, bio: e.target.value })}
-/>
-</div>
-   <button
-  className="btn-primary mt-4"
-  onClick={saveProfile}
->
-  Save Changes
-</button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="glass rounded-2xl p-6">
-              <p className="mb-3 text-sm font-semibold text-body">AI Preferences</p>
-              <div className="space-y-2 text-sm">
-                <div><p className="text-xs text-faint">Favorite AI Models</p><p className="text-body">Gemini, GPT-4</p></div>
-                <div><p className="text-xs text-faint">Default Workspace</p><p className="text-body">Personal Sandbox</p></div>
-                <div><p className="text-xs text-faint">Preferred Language</p><p className="text-body">English (US)</p></div>
-                <div><p className="text-xs text-faint">Default Prompt Style</p><p className="text-body">Concise &amp; Direct</p></div>
-              </div>
+              <h1>My Profile</h1>
+              <p>Manage your personal information and account details.</p>
             </div>
 
-            <div className="glass rounded-2xl p-6">
-              <p className="mb-3 text-sm font-semibold text-body">Recent Activity</p>
-              <div className="space-y-2">
-                {activity.map((a) => (
-                  <div key={a.title}>
-                    <p className="text-sm text-body">{a.title}</p>
-                    <p className="text-xs text-faint">{a.sub}</p>
+            <div className="profile-header-icon">
+              <UserRound size={23} />
+            </div>
+          </header>
+
+          {message && (
+            <div className={`profile-message ${message.type}`}>
+              {message.type === 'success'
+                ? <CheckCircle2 size={18} />
+                : <AlertCircle size={18} />}
+              <span>{message.text}</span>
+              <button
+                type="button"
+                onClick={() => setMessage(null)}
+                aria-label="Dismiss message"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="profile-loading">
+              <LoaderCircle className="profile-spinner" size={28} />
+              <p>Loading your profile...</p>
+            </div>
+          ) : (
+            <>
+              <section className="profile-hero-card">
+                <div className="profile-hero-top">
+                  <div className="profile-avatar-wrap">
+                    <img
+                      src={
+                        selectedFile
+                          ? URL.createObjectURL(selectedFile)
+                          : profileImage
+                      }
+                      alt="Profile"
+                      className="profile-avatar"
+                      onError={(e) => {
+                        e.currentTarget.src = '/default-avatar.png'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="profile-camera-button"
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Choose profile photo"
+                    >
+                      <Camera size={17} />
+                    </button>
                   </div>
-                ))}
+
+                  <div className="profile-identity">
+                    <span className="profile-member-label">
+                      <Sparkles size={13} />
+                      AI NEXUS MEMBER
+                    </span>
+                    <h2>{form.name || user?.name || 'Guest User'}</h2>
+                    <p>{profile?.email || user?.email || '-'}</p>
+                    <div className="profile-status">
+                      <span />
+                      Account active
+                    </div>
+                  </div>
+
+                  <div className="profile-photo-actions">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handleFileChange}
+                    />
+
+                    <button
+                      type="button"
+                      className="profile-secondary-button"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <ImagePlus size={16} />
+                      Choose photo
+                    </button>
+
+                    <button
+                      type="button"
+                      className="profile-primary-button"
+                      onClick={uploadPhoto}
+                      disabled={!selectedFile || uploading}
+                    >
+                      {uploading
+                        ? <LoaderCircle className="profile-spinner" size={16} />
+                        : <Camera size={16} />}
+                      {uploading ? 'Uploading...' : 'Upload photo'}
+                    </button>
+
+                    {selectedFile && (
+                      <span className="profile-file-name">
+                        {selectedFile.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="profile-stats-grid">
+                  {stats.map((stat) => {
+                    const Icon = stat.icon
+
+                    return (
+                      <div className="profile-stat" key={stat.label}>
+                        <div className="profile-stat-icon">
+                          <Icon size={18} />
+                        </div>
+                        <div>
+                          <strong>{stat.value}</strong>
+                          <span>{stat.label}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <div className="profile-content-grid">
+
+                <section className="profile-panel profile-personal-panel">
+                  <div className="profile-panel-heading">
+                    <div>
+                      <span className="profile-section-label">YOUR DETAILS</span>
+                      <h3>Personal Information</h3>
+                      <p>Update the information associated with your account.</p>
+                    </div>
+                    <div className="profile-panel-icon">
+                      <UserRound size={20} />
+                    </div>
+                  </div>
+
+                  <div className="profile-form-grid">
+                    <div className="profile-field">
+                      <label htmlFor="profile-name">Full Name</label>
+                      <div className="profile-input-wrap">
+                        <UserRound size={17} />
+                        <input
+                          id="profile-name"
+                          value={form.name}
+                          onChange={(e) => updateField('name', e.target.value)}
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Email Address</label>
+                      <div className="profile-input-wrap profile-input-disabled">
+                        <Mail size={17} />
+                        <input
+                          value={profile?.email || user?.email || ''}
+                          readOnly
+                          placeholder="Email address"
+                        />
+                      </div>
+                      <span className="profile-field-hint">Email cannot be changed here.</span>
+                    </div>
+
+                    <div className="profile-field">
+                      <label htmlFor="profile-phone">Phone Number</label>
+                      <div className="profile-input-wrap">
+                        <Phone size={17} />
+                        <input
+                          id="profile-phone"
+                          type="tel"
+                          value={form.phone}
+                          onChange={(e) => updateField('phone', e.target.value)}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-field">
+                      <label htmlFor="profile-country">Country</label>
+                      <div className="profile-input-wrap">
+                        <MapPin size={17} />
+                        <input
+                          id="profile-country"
+                          value={form.country}
+                          onChange={(e) => updateField('country', e.target.value)}
+                          placeholder="Enter your country"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-field">
+                      <label htmlFor="profile-occupation">Occupation</label>
+                      <div className="profile-input-wrap">
+                        <BriefcaseBusiness size={17} />
+                        <input
+                          id="profile-occupation"
+                          value={form.occupation}
+                          onChange={(e) => updateField('occupation', e.target.value)}
+                          placeholder="e.g. Developer, Student"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-field">
+                      <label htmlFor="profile-website">Website</label>
+                      <div className="profile-input-wrap">
+                        <Globe size={17} />
+                        <input
+                          id="profile-website"
+                          type="url"
+                          value={form.website}
+                          onChange={(e) => updateField('website', e.target.value)}
+                          placeholder="https://yourwebsite.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="profile-field profile-bio-field">
+                    <label htmlFor="profile-bio">About You</label>
+                    <textarea
+                      id="profile-bio"
+                      rows={4}
+                      maxLength={500}
+                      value={form.bio}
+                      onChange={(e) => updateField('bio', e.target.value)}
+                      placeholder="Tell us a little about yourself..."
+                    />
+                    <span className="profile-character-count">
+                      {form.bio.length}/500
+                    </span>
+                  </div>
+
+                  <div className="profile-form-footer">
+                    <span>Your profile changes are saved to your account.</span>
+                    <button
+                      type="button"
+                      className="profile-primary-button profile-save-button"
+                      onClick={saveProfile}
+                      disabled={saving}
+                    >
+                      {saving
+                        ? <LoaderCircle className="profile-spinner" size={17} />
+                        : <Save size={17} />}
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </section>
+
+                <aside className="profile-side-column">
+
+                  <section className="profile-panel">
+                    <div className="profile-panel-heading compact">
+                      <div>
+                        <span className="profile-section-label">PERSONAL SETUP</span>
+                        <h3>AI Preferences</h3>
+                      </div>
+                      <div className="profile-panel-icon orange">
+                        <Sparkles size={19} />
+                      </div>
+                    </div>
+
+                    <div className="profile-preference-list">
+                      <div className="profile-preference-item">
+                        <span>Favorite AI Models</span>
+                        <strong>Gemini, GPT-OSS</strong>
+                      </div>
+                      <div className="profile-preference-item">
+                        <span>Default Workspace</span>
+                        <strong>Personal Sandbox</strong>
+                      </div>
+                      <div className="profile-preference-item">
+                        <span>Preferred Language</span>
+                        <strong>English (US)</strong>
+                      </div>
+                      <div className="profile-preference-item">
+                        <span>Prompt Style</span>
+                        <strong>Concise &amp; Direct</strong>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="profile-panel">
+                    <div className="profile-panel-heading compact">
+                      <div>
+                        <span className="profile-section-label">ACCOUNT LOG</span>
+                        <h3>Recent Activity</h3>
+                      </div>
+                      <div className="profile-panel-icon">
+                        <Activity size={19} />
+                      </div>
+                    </div>
+
+                    <div className="profile-activity-list">
+                      {activity.map((item, index) => (
+                        <div className="profile-activity-item" key={item.title}>
+                          <div className="profile-activity-marker">
+                            <span />
+                            {index !== activity.length - 1 && (
+                              <i />
+                            )}
+                          </div>
+                          <div>
+                            <strong>{item.title}</strong>
+                            <span>{item.sub}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <div className="profile-help-card">
+                    <div className="profile-help-icon">
+                      <Sparkles size={20} />
+                    </div>
+                    <h3>Make it yours</h3>
+                    <p>
+                      Keep your profile updated to make your AI Nexus
+                      workspace feel more personal.
+                    </p>
+                  </div>
+
+                </aside>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </main>
     </div>

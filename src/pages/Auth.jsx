@@ -1,164 +1,307 @@
+
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Sun, Moon } from 'lucide-react'
-import AmbientBackground from '../components/AmbientBackground.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BrainCircuit,
+  Check,
+  ShieldCheck,
+  Zap,
+  Layers3,
+  Sparkles,
+  Eye,
+  EyeOff,
+  Bot,
+  Network,
+} from 'lucide-react'
+import './auth.css'
 import { useAuth } from '../context/AuthContext.jsx'
 
-const models = ['Gemini', 'Llama', 'Qwen', 'Offline']
-const features = ['Multi-Model AI', 'Fast Comparison', 'Privacy First', 'Beautiful Workspace']
+const features = [
+  'Access multiple AI models in one place',
+  'Compare responses and find better answers',
+  'Save conversations for future reference',
+  'Enjoy a clean and private workspace',
+]
 
 export default function Auth() {
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const navigate = useNavigate()
-  const { theme, toggleTheme } = useTheme()
   const { login, signup } = useAuth()
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
+
     try {
       if (mode === 'signin') {
         await login(email, password)
       } else {
         await signup(name, email, password)
       }
+
       navigate('/home')
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  return (
-    <div className="min-h-screen text-body">
-      <AmbientBackground />
+  function switchMode(nextMode) {
+    setMode(nextMode)
+    setError('')
+  }
 
-      <header className="glass flex items-center justify-between border-b border-[var(--surface-border)] px-8 py-4">
-        <div className="flex items-center gap-2 font-semibold text-heading">
-          <span className="text-primary-400">◆</span> AI Nexus
-        </div>
-        <button
-          onClick={toggleTheme}
-          title="Toggle theme"
-          className="rounded-lg p-2 text-muted transition hover:bg-[var(--track-bg)] hover:text-[var(--text-heading)]"
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+  return (
+    <main className="auth-page">
+      <header className="auth-header">
+        <Link to="/" className="auth-brand">
+          <span className="auth-brand-icon">
+            <BrainCircuit size={23} />
+          </span>
+          <span>AI <strong>Nexus</strong></span>
+        </Link>
+
+        <Link to="/" className="auth-back-link">
+          <ArrowLeft size={16} />
+          <span>Back to website</span>
+        </Link>
       </header>
 
-      <main className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-16 px-8 py-20 md:grid-cols-2">
-        <section>
-          <div className="mb-6 h-14 w-14 rounded-xl bg-gradient-to-br from-primary-500 to-fuchsia-500 shadow-lg shadow-primary-600/40" />
-          <h1 className="text-4xl font-bold leading-tight text-heading">
-            Welcome to{' '}
-            <span className="bg-gradient-to-r from-primary-400 to-fuchsia-400 bg-clip-text text-transparent">
-              AI Nexus
-            </span>
-          </h1>
-          <p className="mt-4 text-muted">
-            One workspace. Multiple AI models. Smarter decisions. Experience the next generation
-            of artificial intelligence interaction.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            {models.map((m) => (
-              <span key={m} className="glass rounded-full px-4 py-1.5 text-sm text-body">
-                {m}
-              </span>
-            ))}
+      <div className="auth-layout">
+        <section className="auth-intro">
+          <div className="auth-eyebrow">
+            <Sparkles size={15} />
+            <span>YOUR AI WORKSPACE</span>
           </div>
 
-          <ul className="mt-8 grid grid-cols-2 gap-y-2 text-sm text-body">
-            {features.map((f) => (
-              <li key={f} className="flex items-center gap-2">
-                <span className="text-primary-400">✓</span> {f}
-              </li>
-            ))}
-          </ul>
-        </section>
+          <h1>
+            One workspace.
+            <br />
+            <span>Many possibilities.</span>
+          </h1>
 
-        <section className="glass rounded-2xl p-8 shadow-2xl shadow-black/20">
-          <h2 className="text-xl font-semibold text-heading">
-            {mode === 'signin' ? 'Sign In' : 'Create Account'}
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            {mode === 'signin' ? 'Log back into your AI headquarters.' : 'Join AI Nexus, free forever.'}
+          <p className="auth-description">
+            Bring different AI models together. Explore ideas, compare
+            responses and get more done with one intelligent workspace.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {mode === 'signup' && (
+          <div className="auth-visual">
+            <div className="auth-visual-grid" />
+
+            <div className="auth-orbit orbit-one" />
+            <div className="auth-orbit orbit-two" />
+
+            <div className="auth-ai-core">
+              <div className="auth-core-inner">
+                <BrainCircuit size={68} strokeWidth={1.35} />
+              </div>
+            </div>
+
+            <div className="auth-float-card auth-card-top">
+              <span className="auth-mini-icon orange">
+                <Zap size={17} />
+              </span>
               <div>
-                <label className="mb-1 block text-sm text-muted">Full Name</label>
+                <strong>Smart responses</strong>
+                <small>Powered by AI</small>
+              </div>
+            </div>
+
+            <div className="auth-float-card auth-card-bottom">
+              <span className="auth-mini-icon blue">
+                <Layers3 size={17} />
+              </span>
+              <div>
+                <strong>Multiple models</strong>
+                <small>One workspace</small>
+              </div>
+            </div>
+
+            <div className="auth-node node-one">
+              <Bot size={21} />
+            </div>
+            <div className="auth-node node-two">
+              <Network size={20} />
+            </div>
+            <div className="auth-node node-three">
+              <Sparkles size={19} />
+            </div>
+          </div>
+
+          <div className="auth-feature-list">
+            {features.map((feature) => (
+              <div key={feature} className="auth-feature">
+                <span><Check size={14} /></span>
+                {feature}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="auth-form-section">
+          <div className="auth-form-card">
+            <div className="auth-form-heading">
+              <div className="auth-form-icon">
+                {mode === 'signin' ? (
+                  <ShieldCheck size={24} />
+                ) : (
+                  <Sparkles size={24} />
+                )}
+              </div>
+
+              <div className="auth-welcome">
+                <span>WELCOME TO AI NEXUS</span>
+                <h2>
+                  {mode === 'signin' ? 'Welcome back!' : 'Create your account'}
+                </h2>
+                <p>
+                  {mode === 'signin'
+                    ? 'Sign in to continue your AI journey.'
+                    : 'Start exploring your AI workspace today.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="auth-mode-switch">
+              <button
+                type="button"
+                className={mode === 'signin' ? 'active' : ''}
+                onClick={() => switchMode('signin')}
+              >
+                Sign In
+              </button>
+
+              <button
+                type="button"
+                className={mode === 'signup' ? 'active' : ''}
+                onClick={() => switchMode('signup')}
+              >
+                Create Account
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="auth-form">
+              {mode === 'signup' && (
+                <div className="auth-field">
+                  <label htmlFor="auth-name">Full Name</label>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    required
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="auth-field">
+                <label htmlFor="auth-email">Email Address</label>
                 <input
-                  type="text"
+                  id="auth-email"
+                  type="email"
+                  placeholder="you@example.com"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="glass-input"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-            )}
-            <div>
-              <label className="mb-1 block text-sm text-muted">Email Address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="glass-input"
-              />
+
+              <div className="auth-field">
+                <label htmlFor="auth-password">Password</label>
+                <div className="auth-password-wrap">
+                  <input
+                    id="auth-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    required
+                    minLength={6}
+                    autoComplete={
+                      mode === 'signin' ? 'current-password' : 'new-password'
+                    }
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+
+                  <button
+                    type="button"
+                    className="auth-password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="auth-error" role="alert">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="auth-submit"
+              >
+                {submitting
+                  ? 'Please wait...'
+                  : mode === 'signin'
+                    ? 'Sign In to AI Nexus'
+                    : 'Create My Account'}
+
+                {!submitting && <ArrowRight size={18} />}
+              </button>
+            </form>
+
+            <div className="auth-switch-text">
+              {mode === 'signin' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button type="button" onClick={() => switchMode('signup')}>
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button type="button" onClick={() => switchMode('signin')}>
+                    Sign in
+                  </button>
+                </>
+              )}
             </div>
-            <div>
-              <label className="mb-1 block text-sm text-muted">Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="glass-input"
-              />
+
+            <div className="auth-secure-note">
+              <ShieldCheck size={15} />
+              Your workspace is protected and private.
             </div>
+          </div>
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
-
-            <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-50">
-              {submitting ? 'Please wait...' : mode === 'signin' ? 'Sign In to Dashboard' : 'Create Account'}
-            </button>
-          </form>
-
-          <p className="mt-4 text-center text-sm text-muted">
-            {mode === 'signin' ? (
-              <>
-                Don't have an account?{' '}
-                <button onClick={() => { setMode('signup'); setError('') }} className="text-primary-400 hover:underline">
-                  Create Account
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button onClick={() => { setMode('signin'); setError('') }} className="text-primary-400 hover:underline">
-                  Sign In
-                </button>
-              </>
-            )}
+          <p className="auth-mobile-footer">
+            © 2026 AI Nexus. All rights reserved.
           </p>
         </section>
-      </main>
+      </div>
 
-      <footer className="glass border-t border-[var(--surface-border)] px-8 py-6 text-center text-xs text-faint">
-        © 2026 AI Nexus. All rights reserved. · Privacy Policy · Terms of Service · Help Center
+      <footer className="auth-footer">
+        <span>© 2026 AI Nexus</span>
+        <span>Built for smarter AI experiences.</span>
       </footer>
-    </div>
+    </main>
   )
 }
