@@ -503,16 +503,6 @@ async def chat(
             detail=f"AI provider error: {str(e)}"
         )
 
-@app.post("/api/chat")
-async def chat(
-    req: ChatRequest,
-    user: User = Depends(get_current_user)
-):
-    func = MODEL_FUNCS.get(req.model)
 
-    if not func:
-        return {
-            "error": "Invalid model"
-        }
 
     

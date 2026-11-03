@@ -221,18 +221,23 @@ export default function Chat() {
       await Promise.all(
         selectedModels.map(async (model) => {
           try {
-            const res = await fetch(`${API}/api/chat`, {
-              method: 'POST',
-              headers: authHeaders,
-              body: JSON.stringify({ prompt, model }),
-            })
+            
+const res = await fetch(`${API}/api/chat`, {
+  method: 'POST',
+  headers: authHeaders,
+  body: JSON.stringify({ prompt, model }),
+})
 
-            if (!res.ok) {
-              throw new Error('Model request failed')
-            }
+const data = await res.json()
 
-            const data = await res.json()
-            const reply = data.reply || 'No response received.'
+if (!res.ok) {
+  throw new Error(
+    data.detail || data.error || 'Model request failed'
+  )
+}
+
+const reply = data.reply || 'No response received.'
+
 
             setRounds((prev) =>
               prev.map((item) =>
