@@ -21,7 +21,7 @@ import Sidebar from '../components/Sidebar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import './chat.css'
 
-const modelOptions = ['gemini', 'llama70b', 'llama8b', 'qwen', 'open router']
+const modelOptions = ['gemini', 'llama70b', 'llama8b', 'qwen', 'offline']
 
 const modelLabels = {
   gemini: 'Gemini 3.6',
